@@ -109,16 +109,19 @@ class SqsQueue implements Queue
             'VisibilityTimeout' => $this->visibilityTimeout
         ]);
         if ($queueItem->hasKey('Messages')) {
-            $msg = $queueItem->get('Messages')[0];
-            if ($this->locker && $this->locker->lock($this->getMessageBody($msg), $this->visibilityTimeout) === false) {
-                $this->error($msg);
-                throw new \RuntimeException(
-                    'Sqs msg lock cannot acquired!'
-                    . ' LockId: ' . $this->locker->getJobUniqId($this->getMessageBody($msg))
-                    . ' LockerInfo: ' . $this->locker->getLockerInfo()
-                );
+            $msg = $queueItem->get('Messages');
+            if (count($msg) > 0) {
+                $msg = $msg[0];
+                if ($this->locker && $this->locker->lock($this->getMessageBody($msg), $this->visibilityTimeout) === false) {
+                    $this->error($msg);
+                    throw new \RuntimeException(
+                        'Sqs msg lock cannot acquired!'
+                        . ' LockId: ' . $this->locker->getJobUniqId($this->getMessageBody($msg))
+                        . ' LockerInfo: ' . $this->locker->getLockerInfo()
+                    );
+                }
+                return $msg;
             }
-            return $msg;
         }
         return false;
     }
@@ -127,7 +130,7 @@ class SqsQueue implements Queue
     {
         $this->deleteMessage($this->sourceQueueUrl, $job['ReceiptHandle']);
     }
-    
+
     public function changeMessageVisibility($job, $visibilityTimeout)
     {
         $this->sqsClient->changeMessageVisibility([
