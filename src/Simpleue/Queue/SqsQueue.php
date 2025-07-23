@@ -208,9 +208,9 @@ class SqsQueue implements Queue
         return json_encode($job);
     }
 
-    public function sendJob($job)
+    public function sendJob($job, $messageGroupId = null, $messageDeduplicationId = null)
     {
-        $this->sendMessage($this->sourceQueueUrl, $job);
+        $this->sendMessage($this->sourceQueueUrl, $job, $messageGroupId, $messageDeduplicationId);
     }
 
     /**
