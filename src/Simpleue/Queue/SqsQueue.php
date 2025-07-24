@@ -73,7 +73,7 @@ class SqsQueue implements Queue
 
     protected function setQueues($queueName)
     {
-        $fifoExtension = $this->fifo ? '.fifo' : '';
+        $fifoExtension = $this->fifo ? '.fifo' : null;
 
         $this->sourceQueueUrl = $this->getQueueUrl($queueName . $fifoExtension);
         $this->failedQueueUrl = $this->getQueueUrl($queueName . '-failed' . $fifoExtension);
