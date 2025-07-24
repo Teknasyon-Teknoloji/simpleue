@@ -30,12 +30,14 @@ class SqsQueue implements Queue
      * @var BaseLocker
      */
     private $locker;
+    private $fifo = false;
 
-    public function __construct(SqsClient $sqsClient, $queueName, $maxWaitingSeconds = 20, $visibilityTimeout = 30)
+    public function __construct(SqsClient $sqsClient, $queueName, $maxWaitingSeconds = 20, $visibilityTimeout = 30, $fifo = false)
     {
         $this->sqsClient = $sqsClient;
         $this->maxWaitingSeconds = $maxWaitingSeconds;
         $this->visibilityTimeout = $visibilityTimeout;
+        $this->fifo = $fifo;
         $this->setQueues($queueName);
     }
 
@@ -71,9 +73,11 @@ class SqsQueue implements Queue
 
     protected function setQueues($queueName)
     {
-        $this->sourceQueueUrl = $this->getQueueUrl($queueName);
-        $this->failedQueueUrl = $this->getQueueUrl($queueName . '-failed');
-        $this->errorQueueUrl = $this->getQueueUrl($queueName . '-error');
+        $fifoExtension = $this->fifo ? '.fifo' : '';
+
+        $this->sourceQueueUrl = $this->getQueueUrl($queueName . $fifoExtension);
+        $this->failedQueueUrl = $this->getQueueUrl($queueName . '-failed' . $fifoExtension);
+        $this->errorQueueUrl = $this->getQueueUrl($queueName . '-error' . $fifoExtension);
     }
 
     protected function getQueueUrl($queueName)
@@ -156,12 +160,19 @@ class SqsQueue implements Queue
         return;
     }
 
-    private function sendMessage($queueUrl, $messageBody)
+    private function sendMessage($queueUrl, $messageBody, $messageGroupId = null, $messageDeduplicationId = null)
     {
-        $this->sqsClient->sendMessage([
+        $message = [
             'QueueUrl' => $queueUrl,
             'MessageBody' => $messageBody
-        ]);
+        ];
+
+        if ($this->fifo) {
+            $message['MessageGroupId'] = !empty($messageGroupId) ? $messageGroupId : 'default';
+            $message['MessageDeduplicationId'] = !empty($messageDeduplicationId) ? $messageDeduplicationId : md5($messageBody);
+        }
+
+        $this->sqsClient->sendMessage($message);
     }
 
     public function error($job)
@@ -197,9 +208,9 @@ class SqsQueue implements Queue
         return json_encode($job);
     }
 
-    public function sendJob($job)
+    public function sendJob($job, $messageGroupId = null, $messageDeduplicationId = null)
     {
-        $this->sendMessage($this->sourceQueueUrl, $job);
+        $this->sendMessage($this->sourceQueueUrl, $job, $messageGroupId, $messageDeduplicationId);
     }
 
     /**
